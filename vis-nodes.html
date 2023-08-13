@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Citation Graph</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
+    <style type="text/css">
+        #mynetwork {
+            width: 70%;
+            height: 500px;
+            border: 1px solid lightgray;
+            float: left;
+        }
+
+        #panel {
+            width: 28%;
+            height: 500px;
+            float: left;
+            margin-left: 2%;
+            border: 1px solid lightgray;
+            padding: 10px;
+        }
+
+        #nodeList, #edgeList {
+            height: 60%;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mynetwork"></div>
+    <div id="panel">
+        <h3>Manage Graph</h3>
+        <button onclick="switchTab('nodes')">Nodes</button>
+        <button onclick="switchTab('edges')">Edges</button>
+
+        <div id="nodes" class="tab">
+            <h4>Nodes</h4>
+            <div id="nodeList"></div>
+            <button onclick="addNode()">Add New Node</button>
+        </div>
+
+        <div id="edges" class="tab" style="display: none;">
+            <h4>Edges</h4>
+            <div id="edgeList"></div>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        const nodes = new vis.DataSet([
+            { id: 'a', label: 'Paper A' },
+            { id: 'b', label: 'Paper B' },
+            { id: 'c', label: 'Paper C' },
+        ]);
+
+        const edges = new vis.DataSet([
+            { from: 'a', to: 'b' },
+            { from: 'a', to: 'c' },
+        ]);
+
+        const container = document.getElementById('mynetwork');
+        const options = {
+            edges: {
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 1,
+                        type: 'arrow'
+                    }
+                }
+            },
+            manipulation: {
+                enabled: false,
+            },
+            physics : false
+        };
+
+        const network = new vis.Network(container, { nodes: nodes, edges: edges }, options);
+        let count = 3;
+        let draggedFromNode = null;
+
+        // network.on('dragStart', function (params) {
+        //     if (params.nodes.length > 0) {
+        //         draggedFromNode = params.nodes[0];
+        //     }
+        // });
+
+        // network.on('release', function (params) {
+        //     if (draggedFromNode && params.nodes.length > 0) {
+        //         const draggedToNode = params.nodes[0];
+        //         if (draggedFromNode !== draggedToNode) {
+        //             edges.add({ from: draggedFromNode, to: draggedToNode });
+        //             updateLists();
+        //         }
+        //         draggedFromNode = null;
+        //     }
+        // });
+        network.on("dragEnd", function(params) {
+            if (params.nodes.length > 0) {
+                const nodeId = params.nodes[0];
+                const nodePosition = network.getPositions(nodeId);
+                const overlappingNodes = network.getNodesAt(nodePosition[nodeId]);
+
+                if (overlappingNodes.length > 1) {
+                    const otherNode = overlappingNodes.find(n => n !== nodeId);
+                    if (!edges.get().some(e => (e.from === nodeId && e.to === otherNode) || (e.from === otherNode && e.to === nodeId))) {
+                        edges.add({ from: nodeId, to: otherNode });
+                    }
+                    network.moveTo({ // Reset the view to see the new edge
+                        position: { x: 0, y: 0 },
+                        scale: 1
+                    });
+                }
+            }
+        });
+
+        function switchTab(tabName) {
+            document.getElementById('nodes').style.display = tabName === 'nodes' ? 'block' : 'none';
+            document.getElementById('edges').style.display = tabName === 'edges' ? 'block' : 'none';
+            updateLists();
+        }
+
+        function updateLists() {
+            const nodeListDiv = document.getElementById('nodeList');
+            const edgeListDiv = document.getElementById('edgeList');
+            nodeListDiv.innerHTML = '';
+            edgeListDiv.innerHTML = '';
+
+            nodes.get().forEach(node => {
+                nodeListDiv.innerHTML += `<div>${node.label} <button onclick="removeNode('${node.id}')">Remove</button></div>`;
+            });
+
+            edges.get().forEach(edge => {
+                edgeListDiv.innerHTML += `<div>${nodes.get(edge.from).label} -> ${nodes.get(edge.to).label} <button onclick="removeEdge('${edge.id}')">Remove</button></div>`;
+            });
+        }
+
+        function addNode() {
+            count++;
+            const newNodeId = String.fromCharCode(96 + count);
+            nodes.add({ id: newNodeId, label: `Paper ${newNodeId.toUpperCase()}` });
+            updateLists();
+        }
+
+        function removeNode(nodeId) {
+            nodes.remove(nodeId);
+            updateLists();
+        }
+
+        function removeEdge(edgeId) {
+            edges.remove(edgeId);
+            updateLists();
+        }
+
+        updateLists();
+    </script>
+</body>
+
+</html>

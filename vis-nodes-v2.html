@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Citation Graph</title>
+    <script type="text/javascript" src="https://unpkg.com/vis-network@latest/dist/vis-network.min.js"></script>
+    <style type="text/css">
+        #mynetwork {
+            width: 70%;
+            height: 500px;
+            border: 1px solid lightgray;
+            float: left;
+        }
+
+        #panel {
+            width: 28%;
+            height: 500px;
+            float: left;
+            margin-left: 2%;
+            border: 1px solid lightgray;
+            padding: 10px;
+        }
+
+        #nodeList,
+        #edgeList {
+            height: 60%;
+            overflow: auto;
+        }
+
+        #contextMenu {
+            position: absolute;
+            display: none;
+            border: 1px solid #333;
+            background-color: #fff;
+            z-index: 10;
+        }
+
+        #citationList, #removeLinkList {
+            border: 1px solid lightgray;
+            max-height: 200px;
+            overflow-y: scroll;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mynetwork"></div>
+    <div id="panel">
+        <h3>Manage Graph</h3>
+        <button onclick="switchTab('nodes')">Nodes</button>
+        <button onclick="switchTab('edges')">Edges</button>
+
+        <div id="nodes" class="tab">
+            <h4>Nodes</h4>
+            <div id="nodeList"></div>
+            <button onclick="addNode()">Add New Node</button>
+        </div>
+
+        <div id="edges" class="tab" style="display: none;">
+            <h4>Edges</h4>
+            <div id="edgeList"></div>
+        </div>
+    </div>
+
+    <div id="contextMenu">
+        <ul>
+            <li>Add Citation
+                <div id="citationList"></div>
+            </li>
+            <li>Remove Link
+                <div id="removeLinkList"></div>
+            </li>
+        </ul>
+    </div>
+
+    <script type="text/javascript">
+        const nodes = new vis.DataSet([
+            { id: 'a', label: 'Paper A' },
+            { id: 'b', label: 'Paper B' },
+            { id: 'c', label: 'Paper C' },
+        ]);
+
+        const edges = new vis.DataSet([
+            { id: 'ab', from: 'a', to: 'b' },
+            { id: 'ac', from: 'a', to: 'c' },
+        ]);
+
+        const container = document.getElementById('mynetwork');
+        const options = {
+            edges: {
+                arrows: {
+                    to: {
+                        enabled: true,
+                        scaleFactor: 1,
+                        type: 'arrow'
+                    }
+                }
+            },
+            manipulation: {
+                enabled: false,
+            }
+        };
+
+        const network = new vis.Network(container, { nodes: nodes, edges: edges }, options);
+        let count = 3;
+
+        network.on("oncontext", function (params) {
+            params.event.preventDefault();
+            if (params.nodes.length) {
+                const nodeId = params.nodes[0];
+                showContextMenu(params.event.pageX, params.event.pageY, nodeId);
+            }
+        });
+
+        function showContextMenu(x, y, nodeId) {
+            const contextMenu = document.getElementById("contextMenu");
+            contextMenu.style.top = y + "px";
+            contextMenu.style.left = x + "px";
+
+            const citationList = document.getElementById("citationList");
+            const removeLinkList = document.getElementById("removeLinkList");
+            citationList.innerHTML = '';
+            removeLinkList.innerHTML = '';
+            const connectedNodes = network.getConnectedNodes(nodeId);
+            
+            nodes.get().forEach(node => {
+                if (node.id !== nodeId && connectedNodes.indexOf(node.id) === -1) {
+                    const listItem = document.createElement('li');
+                    listItem.innerHTML = node.label;
+                    listItem.onclick = function() {
+                        edges.add({ from: nodeId, to: node.id });
+                        updateLists();
+                        contextMenu.style.display = "none";
+                    };
+                    citationList.appendChild(listItem);
+                }
+            });
+
+            connectedNodes.forEach(connectedNodeId => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = nodes.get(connectedNodeId).label;
+                listItem.onclick = function() {
+                    const edgeId = edges.get().find(edge => (edge.from === nodeId && edge.to === connectedNodeId) || (edge.from === connectedNodeId && edge.to === nodeId)).id;
+                    edges.remove(edgeId);
+                    updateLists();
+                    contextMenu.style.display = "none";
+                };
+                removeLinkList.appendChild(listItem);
+            });
+
+            contextMenu.style.display = "block";
+        }
+
+        function switchTab(tabName) {
+            document.getElementById('nodes').style.display = tabName === 'nodes' ? 'block' : 'none';
+            document.getElementById('edges').style.display = tabName === 'edges' ? 'block' : 'none';
+            updateLists();
+        }
+
+        function updateLists() {
+            const nodeListDiv = document.getElementById('nodeList');
+            const edgeListDiv = document.getElementById('edgeList');
+            nodeListDiv.innerHTML = '';
+            edgeListDiv.innerHTML = '';
+
+            nodes.get().forEach(node => {
+                nodeListDiv.innerHTML += `<div>${node.label} <button onclick="removeNode('${node.id}')">Remove</button></div>`;
+            });
+
+            edges.get().forEach(edge => {
+                edgeListDiv.innerHTML += `<div>${nodes.get(edge.from).label} -> ${nodes.get(edge.to).label} <button onclick="removeEdge('${edge.id}')">Remove</button></div>`;
+            });
+        }
+
+        function addNode() {
+            count++;
+            const newNodeId = String.fromCharCode(96 + count);
+            nodes.add({ id: newNodeId, label: `Paper ${newNodeId.toUpperCase()}` });
+            updateLists();
+        }
+
+        function removeNode(nodeId) {
+            nodes.remove(nodeId);
+            updateLists();
+        }
+
+        function removeEdge(edgeId) {
+            edges.remove(edgeId);
+            updateLists();
+        }
+
+        updateLists();
+    </script>
+</body>
+
+</html>
